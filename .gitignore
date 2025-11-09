@@ -1,4 +1,4 @@
 .idea
 recommend/algorithm/
 settings.json
-*.pyc
+*.pycmovie_recommender/aws/conf.py 

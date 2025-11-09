@@ -2,3 +2,13 @@
 recommend/algorithm/
 settings.json
 *.pycmovie_recommender/aws/conf.py 
+echo # Ignore unnecessary files > .gitignore
+echo __pycache__/ >> .gitignore
+echo *.pyc >> .gitignore
+echo *.pyo >> .gitignore
+echo *.pyd >> .gitignore
+echo *.db >> .gitignore
+echo *.sqlite3 >> .gitignore
+echo venv/ >> .gitignore
+echo movie_recommender/aws/conf.py >> .gitignore
+echo */__pycache__/ >> .gitignore

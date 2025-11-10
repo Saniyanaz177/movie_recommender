@@ -138,7 +138,7 @@ def recommend(request):
 
     similar_movies = pd.DataFrame()
     for movie,rating in user_filtered:
-        similar_movies = similar_movies.append(get_similar(movie,rating,corrMatrix),ignore_index = True)
+           similar_movies = pd.concat([similar_movies, get_similar(movie, rating, corrMatrix)], ignore_index=True)
 
     movies_id = list(similar_movies.sum().sort_values(ascending=False).index)
     movies_id_recommend = [each for each in movies_id if each not in movie_id_watched]

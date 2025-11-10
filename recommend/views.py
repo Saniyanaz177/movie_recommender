@@ -110,40 +110,63 @@ def get_similar(movie_name,rating,corrMatrix):
 
 # Recommendation Algorithm
 def recommend(request):
-
     if not request.user.is_authenticated:
         return redirect("login")
     if not request.user.is_active:
         raise Http404
 
+    # Get all user ratings
+    movie_rating = pd.DataFrame(list(Myrating.objects.all().values()))
 
-    movie_rating=pd.DataFrame(list(Myrating.objects.all().values()))
+    if movie_rating.empty:
+        messages.warning(request, "No ratings found in the system yet.")
+        return render(request, 'recommend/recommend.html', {'movie_list': []})
 
-    new_user=movie_rating.user_id.unique().shape[0]
-    current_user_id= request.user.id
-	# if new user not rated any movie
-    if current_user_id>new_user:
-        movie=Movie.objects.get(id=19)
-        q=Myrating(user=request.user,movie=movie,rating=0)
-        q.save()
+    # Identify new user
+    new_user_count = movie_rating.user_id.nunique()
+    current_user_id = request.user.id
 
+    # Add a dummy rating for new users to avoid empty DataFrame
+    if current_user_id > new_user_count:
+        movie = Movie.objects.first()
+        Myrating.objects.create(user=request.user, movie=movie, rating=0)
 
-    userRatings = movie_rating.pivot_table(index=['user_id'],columns=['movie_id'],values='rating')
-    userRatings = userRatings.fillna(0,axis=1)
+    # Create pivot table
+    userRatings = movie_rating.pivot_table(index='user_id', columns='movie_id', values='rating').fillna(0)
+    if userRatings.shape[1] < 2:
+        messages.info(request, "Not enough ratings to generate recommendations.")
+        return render(request, 'recommend/recommend.html', {'movie_list': []})
+
+    # Compute correlation matrix
     corrMatrix = userRatings.corr(method='pearson')
 
-    user = pd.DataFrame(list(Myrating.objects.filter(user=request.user).values())).drop(['user_id','id'],axis=1)
+    # Get current user's ratings
+    user = pd.DataFrame(list(Myrating.objects.filter(user=request.user).values())).drop(['user_id','id'], axis=1)
     user_filtered = [tuple(x) for x in user.values]
     movie_id_watched = [each[0] for each in user_filtered]
 
-    similar_movies = pd.DataFrame()
-    for movie,rating in user_filtered:
-           similar_movies = pd.concat([similar_movies, get_similar(movie, rating, corrMatrix)], ignore_index=True)
+    # Initialize recommendations
+    similar_movies = pd.Series(dtype='float64')
 
-    movies_id = list(similar_movies.sum().sort_values(ascending=False).index)
-    movies_id_recommend = [each for each in movies_id if each not in movie_id_watched]
+    # Aggregate similar movies based on correlations
+    for movie_id, rating in user_filtered:
+        if movie_id in corrMatrix.columns:
+            score = corrMatrix[movie_id] * (rating - 2.5)
+            similar_movies = similar_movies.add(score, fill_value=0)
+
+    if similar_movies.empty:
+        messages.warning(request, "No similar movies found for your rated titles.")
+        return render(request, 'recommend/recommend.html', {'movie_list': []})
+
+    # Sort recommendations
+    similar_movies = similar_movies.sort_values(ascending=False)
+
+    # Filter out movies already watched
+    movies_id_recommend = [m for m in similar_movies.index if m not in movie_id_watched]
+
+    # Get top 10 movies
     preserved = Case(*[When(pk=pk, then=pos) for pos, pk in enumerate(movies_id_recommend)])
-    movie_list=list(Movie.objects.filter(id__in = movies_id_recommend).order_by(preserved)[:10])
+    movie_list = list(Movie.objects.filter(id__in=movies_id_recommend).order_by(preserved)[:10])
 
     context = {'movie_list': movie_list}
     return render(request, 'recommend/recommend.html', context)

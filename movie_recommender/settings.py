@@ -20,7 +20,6 @@ DEBUG = True
 # ✅ Allowed hosts for Railway + local
 ALLOWED_HOSTS = ['web-production-86f1c.up.railway.app', '127.0.0.1', 'localhost']
 
-# ✅ CSRF trusted origins for Railway deployment
 CSRF_TRUSTED_ORIGINS = [
     'https://web-production-86f1c.up.railway.app'
 ]
